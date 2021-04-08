@@ -106,31 +106,39 @@ Math.median = function(values) {
 // Polyfill log10 for internet explorer
 // https://developer.mozilla.org/de/docs/Web/JavaScript/Reference/Global_Objects/Math/log10#Polyfill
 Math.log10 = Math.log10 || function (x) {
-        return Math.log(x) / Math.LN10;
-    };
+    return Math.log(x) / Math.LN10;
+};
 
 //"loglevel" module is used, but if not available, it will fallback to console.log
 self.log = self.log || {
-        debug: (...msg) => {
-            console.log(...msg);
-        },
-        trace: () => {
-            console.trace();
-        },
-        info: (...msg) => {
-            console.info(...msg);
-        },
-        warn: (...msg) => {
-            console.warn(...msg);
-        },
-        error: (...msg) => {
-            console.error(...msg);
-        },
-        setLevel: () => {},
-        getLogger: () => {
-            return log;
-        }
-    };
+    debug: function debug() {
+        let _console;
+
+        (_console = new MockLogger()).log.apply(_console, arguments);
+    },
+    trace: function trace() {
+        new MockLogger().trace();
+    },
+    info: function info() {
+        let _console2;
+
+        (_console2 = new MockLogger()).info.apply(_console2, arguments);
+    },
+    warn: function warn() {
+        let _console3;
+
+        (_console3 = new MockLogger()).warn.apply(_console3, arguments);
+    },
+    error: function error() {
+        let _console4;
+
+        (_console4 = new MockLogger()).error.apply(_console4, arguments);
+    },
+    setLevel: function setLevel() {},
+    getLogger: function getLogger() {
+        return log;
+    }
+};
 
 
 //Polyfill

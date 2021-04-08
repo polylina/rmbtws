@@ -1,8 +1,7 @@
 "use strict";
 
-const TestEnvironment = (function () {
+export const TestEnvironment = function () {
     let testVisualization = null;
-    let geoTracker = null;
 
     return {
         /**
@@ -13,27 +12,14 @@ const TestEnvironment = (function () {
             return testVisualization;
         },
 
-        /**
-         * gets the GeoTracker or null
-         * @returns {GeoTracker}
-         */
-        getGeoTracker: function () {
-            return geoTracker;
-        },
-
-        init: function (tVisualization, gTracker) {
+        init: function (tVisualization) {
             if (typeof tVisualization === 'undefined') {
                 tVisualization = new TestVisualization();
             }
-            if (typeof gTracker === 'undefined') {
-                gTracker = new GeoTracker();
-            }
             testVisualization = tVisualization;
-            geoTracker = gTracker;
         }
     };
-})();
-
+}();
 
 //States
 const TestState = {
@@ -42,7 +28,6 @@ const TestState = {
     INIT_DOWN: "INIT_DOWN",
     PING: "PING",
     DOWN: "DOWN",
-    CONNECT_UPLOAD: "CONNECT_UPLOAD",
     INIT_UP: "INIT_UP",
     UP: "UP",
     END: "END",
@@ -62,7 +47,7 @@ RMBTIntermediateResult.prototype.setLogValues = function () {
         if (value < 10000) {
             return 0;
         }
-        return (2.0 + Math.log((value / 1e6) / Math.LN10)) / 4.0;
+        return (2.0 + Math.log(value / 1e6 / Math.LN10)) / 4.0;
     };
     this.downBitPerSecLog = toLog(downBitPerSec);
     this.upBitPerSecLog = toLog(upBitPerSec);

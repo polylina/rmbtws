@@ -1,6 +1,6 @@
 "use strict";
 
-let RMBTTestConfig = (function () {
+export let RMBTTestConfig = function () {
     RMBTTestConfig.prototype.version = "0.3"; //minimal version compatible with the test
     RMBTTestConfig.prototype.language;
     RMBTTestConfig.prototype.uuid = "";
@@ -15,66 +15,60 @@ let RMBTTestConfig = (function () {
     RMBTTestConfig.prototype.client = "RMBTws";
     RMBTTestConfig.prototype.timezone = "Europe/Vienna";
     RMBTTestConfig.prototype.controlServerURL;
-    RMBTTestConfig.prototype.controlServerRegistrationResource = "/testRequest";
-    RMBTTestConfig.prototype.controlServerResultResource = "/result";
-    RMBTTestConfig.prototype.controlServerDataCollectorResource = "/requestDataCollector";
-//?!? - from RMBTTestParameter.java
+    RMBTTestConfig.prototype.controlServerRegistrationResource = "adminTestRequest";
+    RMBTTestConfig.prototype.controlServerResultResource = "measurementResult";
+    RMBTTestConfig.prototype.controlServerDataCollectorResource = "requestDataCollector";
+    //?!? - from RMBTTestParameter.java
     RMBTTestConfig.prototype.pretestDurationMs = 2000;
     RMBTTestConfig.prototype.savedChunks = 4; //4*4 + 4*8 + 4*16 + ... + 4*MAX_CHUNK_SIZE -> O(8*MAX_CHUNK_SIZE)
     RMBTTestConfig.prototype.measurementPointsTimespan = 40; //1 measure point every 40 ms
     RMBTTestConfig.prototype.numPings = 10; //do 10 pings
-//max used threads for this test phase (upper limit: RegistrationResponse)
+    //max used threads for this test phase (upper limit: RegistrationResponse)
     RMBTTestConfig.prototype.downloadThreadsLimitsMbit = {
         0: 1,
         1: 3,
-        100: 5
+        100: 10
     };
     RMBTTestConfig.prototype.uploadThreadsLimitsMbit = {
         0: 1,
         30: 2,
         80: 3,
-        150: 5
+        150: 10
     };
-    RMBTTestConfig.prototype.userServerSelection = ((typeof window.userServerSelection !== 'undefined') ? userServerSelection : 0); //for QoSTest
+    RMBTTestConfig.prototype.userServerSelection = typeof window.userServerSelection !== 'undefined' ? userServerSelection : 0; //for QoSTest
     RMBTTestConfig.prototype.additionalRegistrationParameters = {}; //will be transmitted in ControlServer registration, if any
     RMBTTestConfig.prototype.additionalSubmissionParameters = {}; //will be transmitted in ControlServer result submission, if any
 
     function RMBTTestConfig(language, controlProxy, wsPath) {
         this.language = language;
         this.controlServerURL = controlProxy + "/" + wsPath;
-
-        if (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) {
-            //we are based in Vienna :-)
-            this.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone.replace("Europe/Berlin","Europe/Vienna");
-        }
     }
 
     return RMBTTestConfig;
-}());
+}();
 
+let RMBTControlServerRegistrationResponse = function () {
+    RMBTControlServerRegistrationResponse.prototype.client_remote_ip;
+    RMBTControlServerRegistrationResponse.prototype.provider;
+    RMBTControlServerRegistrationResponse.prototype.test_server_encryption = "";
+    RMBTControlServerRegistrationResponse.prototype.test_numthreads;
+    RMBTControlServerRegistrationResponse.prototype.test_server_name;
+    RMBTControlServerRegistrationResponse.prototype.test_uuid;
+    RMBTControlServerRegistrationResponse.prototype.test_id;
+    RMBTControlServerRegistrationResponse.prototype.test_token;
+    RMBTControlServerRegistrationResponse.prototype.test_server_address;
+    RMBTControlServerRegistrationResponse.prototype.test_duration;
+    RMBTControlServerRegistrationResponse.prototype.result_url;
+    RMBTControlServerRegistrationResponse.prototype.test_wait;
+    RMBTControlServerRegistrationResponse.prototype.test_server_port;
 
-let RMBTControlServerRegistrationResponse = (function() {
-        RMBTControlServerRegistrationResponse.prototype.client_remote_ip;
-        RMBTControlServerRegistrationResponse.prototype.provider;
-        RMBTControlServerRegistrationResponse.prototype.test_server_encryption = "";
-        RMBTControlServerRegistrationResponse.prototype.test_numthreads;
-        RMBTControlServerRegistrationResponse.prototype.test_server_name;
-        RMBTControlServerRegistrationResponse.prototype.test_uuid;
-        RMBTControlServerRegistrationResponse.prototype.test_id;
-        RMBTControlServerRegistrationResponse.prototype.test_token;
-        RMBTControlServerRegistrationResponse.prototype.test_server_address;
-        RMBTControlServerRegistrationResponse.prototype.test_duration;
-        RMBTControlServerRegistrationResponse.prototype.result_url;
-        RMBTControlServerRegistrationResponse.prototype.test_wait;
-        RMBTControlServerRegistrationResponse.prototype.test_server_port;
-//test
-        function RMBTControlServerRegistrationResponse(data) {
-            Object.assign(this, data);
-            this.test_duration = parseInt(data.test_duration);
-        }
+    function RMBTControlServerRegistrationResponse(data) {
+        Object.assign(this, data);
+        this.test_duration = parseInt(data.test_duration);
+    }
 
-        return RMBTControlServerRegistrationResponse;
-})();
+    return RMBTControlServerRegistrationResponse;
+}();
 
 /**
  * Control structure for a single websocket-test thread
@@ -83,7 +77,7 @@ let RMBTControlServerRegistrationResponse = (function() {
  */
 function RMBTTestThread(cyclicBarrier) {
 
-    let _logger = log.getLogger("rmbtws");
+    let _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
     let _callbacks = {};
     let _cyclicBarrier = cyclicBarrier;
 
@@ -129,8 +123,7 @@ function RMBTTestThread(cyclicBarrier) {
          * Triggers the next state in the thread
          */
         triggerNextState: function() {
-            let states = [TestState.INIT, TestState.INIT_DOWN, TestState.PING,
-                TestState.DOWN, TestState.CONNECT_UPLOAD, TestState.INIT_UP, TestState.UP, TestState.END];
+            let states = [TestState.INIT, TestState.INIT_DOWN, TestState.PING, TestState.DOWN, TestState.INIT_UP, TestState.UP, TestState.END];
             if (this.state !== TestState.END) {
                 let nextState = states[states.indexOf(this.state) + 1];
                 _logger.debug(this.id + ": triggered state " + nextState);
@@ -144,8 +137,7 @@ function RMBTTestThread(cyclicBarrier) {
     };
 }
 
-
-function RMBTTestResult() {
+export function RMBTTestResult() {
     this.pings = [];
     this.speedItems = [];
     this.threads = [];
@@ -229,7 +221,7 @@ RMBTTestResult.calculateOverallSpeedFromMultipleThreads = (threads, phaseResults
     return {
         bytes: totalBytes,
         nsec: targetTime,
-        speed: (totalBytes * 8) / (targetTime / 1e9)
+        speed: totalBytes * 8 / (targetTime / 1e9)
     };
 };
 
@@ -287,17 +279,10 @@ RMBTTestResult.prototype.calculateAll = function() {
     let pings = this.threads[0].pings;
     for (let i = 0; i < pings.length; i++) {
         this.pings.push({
-           value: pings[i].client,
-           value_server: pings[i].server,
-           time_ns: pings[i].timeNs
+            value: pings[i].client,
+            value_server: pings[i].server,
+            time_ns: pings[i].timeNs
         });
-
-    }
-
-    //add time_ns to geoLocations
-    for (let i=0;i<this.geoLocations.length;i++) {
-        let geoLocation = this.geoLocations[i];
-        geoLocation['time_ns'] = (geoLocation.tstamp - this.beginTime) * 1e6;
     }
 };
 

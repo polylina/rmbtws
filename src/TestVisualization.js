@@ -1,3 +1,4 @@
+
 "use strict";
 
 /**
@@ -9,7 +10,7 @@
  *  Information (provider, ip, uuid, etc.) has to be set via updateInformation
  *  As soon as the test reaches the "End"-State, the result page is called
  */
-var TestVisualization = (function () {
+var TestVisualization = function () {
 
     function TestVisualization(successCallback, errorCallback) {
         this.successCallback = successCallback;
@@ -58,15 +59,6 @@ var TestVisualization = (function () {
     };
 
     /**
-     * Will be called from GeoTracker as soon as a location is available
-     * @param latitude
-     * @param longitude
-     */
-    TestVisualization.prototype.setLocation = function (latitude, longitude) {
-
-    };
-
-    /**
      * Starts visualization
      */
     TestVisualization.prototype.startTest = function () {
@@ -74,4 +66,4 @@ var TestVisualization = (function () {
     };
 
     return TestVisualization;
-})();
+}();

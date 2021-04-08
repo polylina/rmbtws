@@ -1,7 +1,7 @@
 /*!******************************************************************************
  * @license
  * Copyright 2015-2017 Thomas Schreiber
- * Copyright 2017-2019 Rundfunk und Telekom Regulierungs-GmbH (RTR-GmbH)
+ * Copyright 2017-2019      Rundfunk und Telekom Regulierungs-GmbH (RTR-GmbH)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,43 @@
  * @returns {}
  */
 
-function RMBTTest(rmbtTestConfig, rmbtControlServer) {
-    var _server_override = "wss://developv4-rmbtws.netztest.at:19002";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
 
-    var _logger = log.getLogger("rmbtws");
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+exports.RMBTTest = RMBTTest;
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var MockLogger = function () {
+    function MockLogger() {
+        _classCallCheck(this, MockLogger);
+    }
+
+    _createClass(MockLogger, [{
+        key: "debug",
+        value: function debug() {}
+    }, {
+        key: "error",
+        value: function error() {}
+    }, {
+        key: "info",
+        value: function info() {}
+    }, {
+        key: "warn",
+        value: function warn() {}
+    }, {
+        key: "log",
+        value: function log() {}
+    }]);
+
+    return MockLogger;
+}();
+
+function RMBTTest(rmbtTestConfig, rmbtControlServer) {
+    var _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
 
     var _chunkSize = null;
     var MAX_CHUNK_SIZE = 4194304;
@@ -134,7 +167,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
         }
     };
 
-    this.startTest = function () {
+    this.startTest = function (isLoopIteration) {
         //see if websockets are supported
         if (window.WebSocket === undefined) {
             callErrorCallback(RMBTError.NOT_SUPPORTED);
@@ -147,6 +180,10 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
         _rmbtControlServer.getDataCollectorInfo();
 
         _rmbtControlServer.obtainControlServerRegistration(function (response) {
+            if (!isLoopIteration) {
+                window.loopFirstTestUUID = response.test_uuid;
+            }
+
             _numThreadsAllowed = parseInt(response.test_numthreads);
             _cyclicBarrier = new CyclicBarrier(_numThreadsAllowed);
             _statesInfo.durationDownMs = response.test_duration * 1e3;
@@ -174,8 +211,6 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
                         //only one thread will call after upload is finished
                         conductTest(response, thread, function () {
                             _logger.info("All tests finished");
-                            wsGeoTracker.stop();
-                            _rmbtTestResult.geoLocations = wsGeoTracker.getResults();
                             _rmbtTestResult.calculateAll();
                             _rmbtControlServer.submitResults(prepareResult(response), function () {
                                 setState(TestState.END);
@@ -199,20 +234,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
                 }
             };
 
-            var wsGeoTracker = void 0;
-            //get the user's geolocation
-            if (TestEnvironment.getGeoTracker() !== null) {
-                wsGeoTracker = TestEnvironment.getGeoTracker();
-
-                //in case of legacy code, the geoTracker will already be started
-                continuation();
-            } else {
-                wsGeoTracker = new GeoTracker();
-                _logger.debug("getting geolocation");
-                wsGeoTracker.start(function () {
-                    continuation();
-                }, TestEnvironment.getTestVisualization());
-            }
+            continuation();
         }, function () {
             //no internet connection
             callErrorCallback(RMBTError.REGISTRATION_FAILED);
@@ -226,6 +248,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
     this.getIntermediateResult = function () {
         _intermediateResult.status = _state;
         var diffTime = nowNs() / 1e6 - _stateChangeMs;
+        _intermediateResult.diffTime = diffTime / 1000;
 
         switch (_intermediateResult.status) {
             case TestState.WAIT:
@@ -302,7 +325,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
      */
     function conductTest(registrationResponse, thread, callback) {
         var server = (registrationResponse.test_server_encryption ? "wss://" : "ws://") + registrationResponse.test_server_address + ":" + registrationResponse.test_server_port;
-        //server = server_override;
+
         _logger.debug(server);
 
         var errorFunctions = function () {
@@ -362,23 +385,12 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
             if (thread.id < _numDownloadThreads) {
                 downloadTest(thread, registrationResponse.test_duration);
             } else {
-                thread.socket.onerror = errorFunctions.IGNORE;
-                thread.socket.onclose = errorFunctions.IGNORE;
                 thread.triggerNextState();
             }
         });
 
-        thread.onStateEnter(TestState.CONNECT_UPLOAD, function () {
-            setState(TestState.INIT_UP);
-            //terminate connection, reconnect
-            thread.socket.onerror = errorFunctions.IGNORE;
-            thread.socket.onclose = errorFunctions.IGNORE;
-            thread.socket.close();
-            connectToServer(thread, server, registrationResponse.test_token, errorFunctions.CALLGLOBALHANDLER);
-        });
-
         thread.onStateEnter(TestState.INIT_UP, function () {
-            //setState(TestState.INIT_UP);
+            setState(TestState.INIT_UP);
             _chunkSize = MIN_CHUNK_SIZE;
 
             shortUploadtest(thread, _rmbtTestConfig.pretestDurationMs);
@@ -1080,7 +1092,8 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
             type: "DESKTOP",
             version_code: "1",
             speed_detail: _rmbtTestResult.speedItems,
-            user_server_selection: _rmbtTestConfig.userServerSelection
+            user_server_selection: _rmbtTestConfig.userServerSelection,
+            loop_uuid: window.loopFirstTestUUID
         };
     }
 
@@ -1096,270 +1109,20 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
 };
 "use strict";
 
-var curGeoPos = void 0;
-var geo_callback = void 0,
-    loc_timeout = void 0;
-
-function runCallback() {
-    if (geo_callback != undefined && typeof geo_callback === 'function') {
-        window.setTimeout(function () {
-            geo_callback();
-        }, 1);
-    }
-}
-
-function getCurLocation() {
-    return curGeoPos;
-}
-
-/**
- * GetLocation, JSDoc from old Test
- * @param {Boolean} geoAccuracy enable high accuracy (i.e. GPS instead of AP)
- * @param {Numeric} geoTimeout maximal timeout before error function is called
- * @param {Numeric} geoMaxAge maximal allowed age in milliseconds
- * @param {Function} callback
- */
-function getLocation(geoAccuracy, geoTimeout, geoMaxAge, callback) {
-    var ausgabe = document.getElementById("infogeo");
-    geo_callback = callback;
-
-    if (!navigator.geolocation) {
-        //maybe there is a position in a cookie
-        //because the user had been asked for his address
-        var coords = getCookie('coords');
-        if (coords) {
-            var tmpcoords = JSON.parse(coords);
-            if (tmpcoords && tmpcoords['lat'] > 0 && tmpcoords['long'] > 0) {
-                testVisualization.setLocation(tmpcoords['lat'], tmpcoords['long']);
-            }
-        } else {
-            ausgabe.innerHTML = Lang.getString('NotSupported');
-        }
-
-        runCallback();
-        return;
-    }
-    runCallback();
-    //var TestEnvironment.getGeoTracker() = new GeoTracker();
-    TestEnvironment.getGeoTracker().start(function (successful, error) {
-        if (successful !== true) {
-            //user did not allow geolocation or other reason
-            if (error) {
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        ausgabe.innerHTML = Lang.getString('NoPermission');
-                        break;
-                    case error.TIMEOUT:
-                        //@TODO: Position is determined...
-                        //alert(1);
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        ausgabe.innerHTML = Lang.getString('NotAvailable');
-                        break;
-                    case error.UNKNOWN_ERROR:
-                        ausgabe.innerHTML = Lang.getString('NotAvailable') + "(" + error.code + ")";
-                        break;
-                }
-            } else {
-                //Internet Explorer 11 in some cases does not return an error code
-                ausgabe.innerHTML = Lang.getString('NotAvailable');
-            }
-        }
-    }, TestEnvironment.getTestVisualization());
-}
-
-//Geolocation tracking
-var GeoTracker = function () {
-    "use strict";
-
-    var _errorTimeout = 2e3; //2 seconds error timeout
-    var _maxAge = 60e3; //up to one minute old - don't do geoposition again
-
-    var _positions = void 0;
-    var _clientCallback = void 0;
-    var _testVisualization = null;
-
-    var _watcher = void 0;
-    var _firstPositionIsInAccurate = void 0;
-
-    function GeoTracker() {
-        _positions = [];
-        _firstPositionIsInAccurate = false;
-    }
-
-    /**
-     * Start geolocating
-     * @param {Function(Boolean)} callback expects param 'successful' (boolean, ErrorReason) and
-     *      is called as soon as there is a result available or the user cancelled
-     * @param {TestVisualization} testVisualization optional
-     */
-    GeoTracker.prototype.start = function (callback, testVisualization) {
-        _clientCallback = callback;
-
-        if (testVisualization !== undefined) {
-            _testVisualization = testVisualization;
-        }
-
-        if (navigator.geolocation) {
-            //try to get an rough first position
-            navigator.geolocation.getCurrentPosition(function (success) {
-                if (_positions.length === 0) {
-                    _firstPositionIsInAccurate = true;
-                    successFunction(success);
-                }
-            }, errorFunction, {
-                enableHighAccuracy: false,
-                timeout: _errorTimeout, //2 seconds
-                maximumAge: _maxAge //one minute
-            });
-            //and refine this position later
-            _watcher = navigator.geolocation.watchPosition(successFunction, errorFunction, {
-                enableHighAccuracy: true,
-                timeout: Infinity,
-                maximumAge: 0 //one minute
-            });
-        } else {
-            var t = _clientCallback;
-            _clientCallback = null;
-            t(false);
-        }
-
-        //Microsoft Edge does not adhere to the standard, and does not call the error
-        //function after the specified callback, so we have to call it manually
-        window.setTimeout(function () {
-            errorFunction();
-        }, _errorTimeout);
-    };
-
-    /**
-     * Saves the given result
-     * Is called when a geolocation query returns a result
-     * @param {Position} position the result https://developer.mozilla.org/en-US/docs/Web/API/Position
-     */
-    var successFunction = function successFunction(position) {
-        //rough first position and now more accurate one -> remove the inaccurate one
-        if (_positions.length === 1 && _firstPositionIsInAccurate) {
-            _positions = [];
-            _firstPositionIsInAccurate = false;
-        }
-
-        _positions.push({
-            geo_lat: position.coords.latitude,
-            geo_long: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            altitude: position.coords.altitude,
-            bearing: position.coords.heading,
-            speed: position.coords.speed,
-            tstamp: position.timestamp,
-            provider: 'Browser'
-        });
-        if (_clientCallback !== null) {
-            //call client that we now have a result
-            var t = _clientCallback;
-            _clientCallback = null;
-            t(true);
-        }
-        if (_testVisualization !== null) {
-            _testVisualization.setLocation(position.coords.latitude, position.coords.longitude);
-        }
-        updateCookie(position);
-    };
-
-    var errorFunction = function errorFunction(reason) {
-        //PositionError Object (https://developer.mozilla.org/en-US/docs/Web/API/PositionError)
-        if (_clientCallback !== null) {
-            //call client that we now have an error
-            var t = _clientCallback;
-            _clientCallback = null;
-            t(false, reason);
-        }
-    };
-
-    var updateCookie = function updateCookie(position) {
-        var coords = {};
-        coords['lat'] = position.coords.latitude;
-        coords['long'] = position.coords.longitude;
-        coords['accuracy'] = position.coords.accuracy;
-        coords['altitude'] = position.coords.altitude;
-        coords['heading'] = position.coords.heading;
-        coords['speed'] = position.coords.speed;
-        coords['tstamp'] = position.timestamp;
-        //console.log("coords: "+coords);
-        coords = JSON.stringify(coords);
-        //console.log("tmpcoords: "+tmpcoords);
-        setCookie('coords', coords, 3600);
-    };
-
-    GeoTracker.prototype.stop = function () {
-        if (navigator.geolocation) {
-            navigator.geolocation.clearWatch(_watcher);
-        }
-    };
-
-    /**
-     *
-     * @returns {Array} all results
-     */
-    GeoTracker.prototype.getResults = function () {
-        //filter duplicate results that can occur when using hardware GPS devices
-        //with certain Browsers
-        var previousItem = null;
-        _positions = _positions.filter(function (position) {
-            if (previousItem == null) {
-                previousItem = position;
-                return true;
-            }
-            var equal = Object.keys(position).every(function (key) {
-                return previousItem.hasOwnProperty(key) && previousItem[key] === position[key];
-            });
-            if (equal) {
-                //remove this item
-                return false;
-            } else {
-                previousItem = position;
-                return true;
-            }
-        });
-
-        return _positions;
-    };
-
-    return GeoTracker;
-}();
-
-/* getCookie polyfill */
-if (typeof window.setCookie === 'undefined') {
-    window.setCookie = function (cookie_name, cookie_value, cookie_exseconds) {
-        //var exdate = new Date();
-        //exdate.setDate(exdate.getDate() + cookie_exdays);
-
-        var futuredate = new Date();
-        var expdate = futuredate.getTime();
-        expdate += cookie_exseconds * 1000;
-        futuredate.setTime(expdate);
-
-        //var c_value=escape(cookie_value) + ((cookie_exdays==null) ? ";" : "; expires="+exdate.toUTCString() +";");
-        var c_value = encodeURIComponent(cookie_value) + (cookie_exseconds == null ? ";" : "; expires=" + futuredate.toUTCString() + ";");
-        document.cookie = cookie_name + "=" + c_value + " path=/;";
-    };
-}
-"use strict";
-
 /**
  * Handles the communication with the ControlServer
  * @param rmbtTestConfig RMBT Test Configuratio
- * @param options additional options:
- *  'register': Function to be called after registration: function(event)
- *  'submit':  Function to be called after result submission: function(event)
+ * @param headers HTTP headers to send in the requests
+ * @param testServerConfig Measurement server info
  * @returns Object
  */
-var RMBTControlServerCommunication = function RMBTControlServerCommunication(rmbtTestConfig, options) {
-    var _rmbtTestConfig = rmbtTestConfig;
-    var _logger = log.getLogger("rmbtws");
 
-    options = options || {};
-    var _registrationCallback = options.register || null;
-    var _submissionCallback = options.submit || null;
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+var RMBTControlServerCommunication = exports.RMBTControlServerCommunication = function RMBTControlServerCommunication(rmbtTestConfig, headers, testServerConfig) {
+    var _rmbtTestConfig = rmbtTestConfig;
+    var _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
 
     return {
         /**
@@ -1375,7 +1138,8 @@ var RMBTControlServerCommunication = function RMBTControlServerCommunication(rmb
                 version_code: _rmbtTestConfig.version_code,
                 client: _rmbtTestConfig.client,
                 timezone: _rmbtTestConfig.timezone,
-                time: new Date().getTime()
+                time: new Date().getTime(),
+                measurement_server_id: testServerConfig ? testServerConfig.id : undefined
             };
 
             //add additional parameters from the configuration, if any
@@ -1385,30 +1149,20 @@ var RMBTControlServerCommunication = function RMBTControlServerCommunication(rmb
                 json_data['prefer_server'] = UserConf.preferredServer;
                 json_data['user_server_selection'] = userServerSelection;
             }
-            var response = void 0;
             $.ajax({
+                headers: headers,
                 url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerRegistrationResource,
                 type: "post",
                 dataType: "json",
                 contentType: "application/json",
                 data: JSON.stringify(json_data),
                 success: function success(data) {
-                    response = data;
                     var config = new RMBTControlServerRegistrationResponse(data);
                     onsuccess(config);
                 },
-                error: function error(data) {
-                    response = data;
+                error: function error() {
                     _logger.error("error getting testID");
                     onerror();
-                },
-                complete: function complete() {
-                    if (_registrationCallback != null && typeof _registrationCallback === 'function') {
-                        _registrationCallback({
-                            response: response,
-                            request: json_data
-                        });
-                    }
                 }
             });
         },
@@ -1419,6 +1173,7 @@ var RMBTControlServerCommunication = function RMBTControlServerCommunication(rmb
          */
         getDataCollectorInfo: function getDataCollectorInfo() {
             $.ajax({
+                headers: headers,
                 url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerDataCollectorResource,
                 type: "get",
                 dataType: "json",
@@ -1447,31 +1202,20 @@ var RMBTControlServerCommunication = function RMBTControlServerCommunication(rmb
 
             var json = JSON.stringify(json_data);
             _logger.debug("Submit size: " + json.length);
-            var response = void 0;
             $.ajax({
+                headers: headers,
                 url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerResultResource,
                 type: "post",
                 dataType: "json",
                 contentType: "application/json",
                 data: json,
                 success: function success(data) {
-                    response = data;
-                    _logger.debug("https://develop.netztest.at/en/Verlauf?" + json_data.test_uuid);
-                    //window.location.href = "https://develop.netztest.at/en/Verlauf?" + data.test_uuid;
+                    _logger.debug(json_data.test_uuid);
                     onsuccess(true);
                 },
                 error: function error(data) {
-                    response = data;
                     _logger.error("error submitting results");
                     onerror(false);
-                },
-                complete: function complete() {
-                    if (_submissionCallback !== null && typeof _submissionCallback === 'function') {
-                        _submissionCallback({
-                            response: response,
-                            request: json_data
-                        });
-                    }
                 }
             });
         }
@@ -1479,9 +1223,11 @@ var RMBTControlServerCommunication = function RMBTControlServerCommunication(rmb
 };
 "use strict";
 
-var TestEnvironment = function () {
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+var TestEnvironment = exports.TestEnvironment = function () {
     var testVisualization = null;
-    var geoTracker = null;
 
     return {
         /**
@@ -1492,23 +1238,11 @@ var TestEnvironment = function () {
             return testVisualization;
         },
 
-        /**
-         * gets the GeoTracker or null
-         * @returns {GeoTracker}
-         */
-        getGeoTracker: function getGeoTracker() {
-            return geoTracker;
-        },
-
-        init: function init(tVisualization, gTracker) {
+        init: function init(tVisualization) {
             if (typeof tVisualization === 'undefined') {
                 tVisualization = new TestVisualization();
             }
-            if (typeof gTracker === 'undefined') {
-                gTracker = new GeoTracker();
-            }
             testVisualization = tVisualization;
-            geoTracker = gTracker;
         }
     };
 }();
@@ -1520,7 +1254,6 @@ var TestState = {
     INIT_DOWN: "INIT_DOWN",
     PING: "PING",
     DOWN: "DOWN",
-    CONNECT_UPLOAD: "CONNECT_UPLOAD",
     INIT_UP: "INIT_UP",
     UP: "UP",
     END: "END",
@@ -1554,6 +1287,7 @@ RMBTIntermediateResult.prototype.progress = 0;
 RMBTIntermediateResult.prototype.downBitPerSecLog = -1;
 RMBTIntermediateResult.prototype.upBitPerSecLog = -1;
 RMBTIntermediateResult.prototype.remainingWait = -1;
+
 "use strict";
 
 /**
@@ -1610,13 +1344,6 @@ var TestVisualization = function () {
     };
 
     /**
-     * Will be called from GeoTracker as soon as a location is available
-     * @param latitude
-     * @param longitude
-     */
-    TestVisualization.prototype.setLocation = function (latitude, longitude) {};
-
-    /**
      * Starts visualization
      */
     TestVisualization.prototype.startTest = function () {};
@@ -1625,7 +1352,11 @@ var TestVisualization = function () {
 }();
 "use strict";
 
-var RMBTTestConfig = function () {
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+exports.RMBTTestResult = RMBTTestResult;
+var RMBTTestConfig = exports.RMBTTestConfig = function () {
     RMBTTestConfig.prototype.version = "0.3"; //minimal version compatible with the test
     RMBTTestConfig.prototype.language;
     RMBTTestConfig.prototype.uuid = "";
@@ -1640,9 +1371,9 @@ var RMBTTestConfig = function () {
     RMBTTestConfig.prototype.client = "RMBTws";
     RMBTTestConfig.prototype.timezone = "Europe/Vienna";
     RMBTTestConfig.prototype.controlServerURL;
-    RMBTTestConfig.prototype.controlServerRegistrationResource = "/testRequest";
-    RMBTTestConfig.prototype.controlServerResultResource = "/result";
-    RMBTTestConfig.prototype.controlServerDataCollectorResource = "/requestDataCollector";
+    RMBTTestConfig.prototype.controlServerRegistrationResource = "adminTestRequest";
+    RMBTTestConfig.prototype.controlServerResultResource = "measurementResult";
+    RMBTTestConfig.prototype.controlServerDataCollectorResource = "requestDataCollector";
     //?!? - from RMBTTestParameter.java
     RMBTTestConfig.prototype.pretestDurationMs = 2000;
     RMBTTestConfig.prototype.savedChunks = 4; //4*4 + 4*8 + 4*16 + ... + 4*MAX_CHUNK_SIZE -> O(8*MAX_CHUNK_SIZE)
@@ -1652,13 +1383,13 @@ var RMBTTestConfig = function () {
     RMBTTestConfig.prototype.downloadThreadsLimitsMbit = {
         0: 1,
         1: 3,
-        100: 5
+        100: 10
     };
     RMBTTestConfig.prototype.uploadThreadsLimitsMbit = {
         0: 1,
         30: 2,
         80: 3,
-        150: 5
+        150: 10
     };
     RMBTTestConfig.prototype.userServerSelection = typeof window.userServerSelection !== 'undefined' ? userServerSelection : 0; //for QoSTest
     RMBTTestConfig.prototype.additionalRegistrationParameters = {}; //will be transmitted in ControlServer registration, if any
@@ -1667,11 +1398,6 @@ var RMBTTestConfig = function () {
     function RMBTTestConfig(language, controlProxy, wsPath) {
         this.language = language;
         this.controlServerURL = controlProxy + "/" + wsPath;
-
-        if (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) {
-            //we are based in Vienna :-)
-            this.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone.replace("Europe/Berlin", "Europe/Vienna");
-        }
     }
 
     return RMBTTestConfig;
@@ -1691,7 +1417,7 @@ var RMBTControlServerRegistrationResponse = function () {
     RMBTControlServerRegistrationResponse.prototype.result_url;
     RMBTControlServerRegistrationResponse.prototype.test_wait;
     RMBTControlServerRegistrationResponse.prototype.test_server_port;
-    //test
+
     function RMBTControlServerRegistrationResponse(data) {
         Object.assign(this, data);
         this.test_duration = parseInt(data.test_duration);
@@ -1707,7 +1433,7 @@ var RMBTControlServerRegistrationResponse = function () {
  */
 function RMBTTestThread(cyclicBarrier) {
 
-    var _logger = log.getLogger("rmbtws");
+    var _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
     var _callbacks = {};
     var _cyclicBarrier = cyclicBarrier;
 
@@ -1752,7 +1478,7 @@ function RMBTTestThread(cyclicBarrier) {
          * Triggers the next state in the thread
          */
         triggerNextState: function triggerNextState() {
-            var states = [TestState.INIT, TestState.INIT_DOWN, TestState.PING, TestState.DOWN, TestState.CONNECT_UPLOAD, TestState.INIT_UP, TestState.UP, TestState.END];
+            var states = [TestState.INIT, TestState.INIT_DOWN, TestState.PING, TestState.DOWN, TestState.INIT_UP, TestState.UP, TestState.END];
             if (this.state !== TestState.END) {
                 var nextState = states[states.indexOf(this.state) + 1];
                 _logger.debug(this.id + ": triggered state " + nextState);
@@ -1913,12 +1639,6 @@ RMBTTestResult.prototype.calculateAll = function () {
             time_ns: pings[_i3].timeNs
         });
     }
-
-    //add time_ns to geoLocations
-    for (var _i4 = 0; _i4 < this.geoLocations.length; _i4++) {
-        var geoLocation = this.geoLocations[_i4];
-        geoLocation['time_ns'] = (geoLocation.tstamp - this.beginTime) * 1e6;
-    }
 };
 
 function RMBTThreadTestResult() {
@@ -2061,27 +1781,27 @@ Math.log10 = Math.log10 || function (x) {
 //"loglevel" module is used, but if not available, it will fallback to console.log
 self.log = self.log || {
     debug: function debug() {
-        var _console;
+        var _console = void 0;
 
-        (_console = console).log.apply(_console, arguments);
+        (_console = new MockLogger()).log.apply(_console, arguments);
     },
     trace: function trace() {
-        console.trace();
+        new MockLogger().trace();
     },
     info: function info() {
-        var _console2;
+        var _console2 = void 0;
 
-        (_console2 = console).info.apply(_console2, arguments);
+        (_console2 = new MockLogger()).info.apply(_console2, arguments);
     },
     warn: function warn() {
-        var _console3;
+        var _console3 = void 0;
 
-        (_console3 = console).warn.apply(_console3, arguments);
+        (_console3 = new MockLogger()).warn.apply(_console3, arguments);
     },
     error: function error() {
-        var _console4;
+        var _console4 = void 0;
 
-        (_console4 = console).error.apply(_console4, arguments);
+        (_console4 = new MockLogger()).error.apply(_console4, arguments);
     },
     setLevel: function setLevel() {},
     getLogger: function getLogger() {

@@ -36,21 +36,21 @@ export const RMBTControlServerCommunication = (rmbtTestConfig, headers, testServ
                 json_data['prefer_server'] = UserConf.preferredServer;
                 json_data['user_server_selection'] = userServerSelection;
             }
-            $.ajax({
-                headers,
-                url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerRegistrationResource,
-                type: "post",
-                dataType: "json",
-                contentType: "application/json",
-                data: JSON.stringify(json_data),
-                success: (data) => {
-                    let config = new RMBTControlServerRegistrationResponse(data);
-                    onsuccess(config);
-                },
-                error: () => {
-                    _logger.error("error getting testID");
-                    onerror();
+
+            fetch(
+                _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerRegistrationResource,
+                {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(json_data)
                 }
+            ).then(res => res.json()
+            ).then(data => {
+                const config = new RMBTControlServerRegistrationResponse(data);
+                onsuccess(config);
+            }).catch(() => {
+                _logger.error("error getting testID");
+                onerror();
             });
         },
 
@@ -59,21 +59,19 @@ export const RMBTControlServerCommunication = (rmbtTestConfig, headers, testServ
          *
          */
         getDataCollectorInfo: () => {
-            $.ajax({
-                headers,
-                url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerDataCollectorResource,
-                type: "get",
-                dataType: "json",
-                contentType: "application/json",
-                success: (data) => {
-                    _rmbtTestConfig.product = data.agent.substring(0, Math.min(150, data.agent.length));
-                    _rmbtTestConfig.model = data.product;
-                    //_rmbtTestConfig.platform = data.product;
-                    _rmbtTestConfig.os_version = data.version;
-                },
-                error: (data) => {
-                    _logger.error("error getting data collection response");
+            fetch(
+                _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerDataCollectorResource,
+                {
+                    method: 'GET',
+                    headers
                 }
+            ).then(res => res.json()
+            ).then(data => {
+                _rmbtTestConfig.product = data.agent.substring(0, Math.min(150, data.agent.length));
+                _rmbtTestConfig.model = data.product;
+                _rmbtTestConfig.os_version = data.version;
+            }).catch(() => {
+                _logger.error("error getting data collection response");
             });
         },
 
@@ -89,21 +87,20 @@ export const RMBTControlServerCommunication = (rmbtTestConfig, headers, testServ
 
             let json = JSON.stringify(json_data);
             _logger.debug("Submit size: " + json.length);
-            $.ajax({
-                headers,
-                url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerResultResource,
-                type: "post",
-                dataType: "json",
-                contentType: "application/json",
-                data: json,
-                success: (data) => {
-                    _logger.debug(json_data.test_uuid);
-                    onsuccess(true);
-                },
-                error: (data) => {
-                    _logger.error("error submitting results");
-                    onerror(false);
+            fetch(
+                _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerResultResource,
+                {
+                    method: 'POST',
+                    headers,
+                    body: json
                 }
+            ).then(res => res.json()
+            ).then(() => {
+                _logger.debug(json_data.test_uuid);
+                onsuccess(true);
+            }).catch(() => {
+                _logger.error("error submitting results");
+                onerror(false);
             });
         }
     };

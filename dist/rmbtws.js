@@ -1149,21 +1149,19 @@ var RMBTControlServerCommunication = exports.RMBTControlServerCommunication = fu
                 json_data['prefer_server'] = UserConf.preferredServer;
                 json_data['user_server_selection'] = userServerSelection;
             }
-            $.ajax({
+
+            fetch(_rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerRegistrationResource, {
+                method: 'POST',
                 headers: headers,
-                url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerRegistrationResource,
-                type: "post",
-                dataType: "json",
-                contentType: "application/json",
-                data: JSON.stringify(json_data),
-                success: function success(data) {
-                    var config = new RMBTControlServerRegistrationResponse(data);
-                    onsuccess(config);
-                },
-                error: function error() {
-                    _logger.error("error getting testID");
-                    onerror();
-                }
+                body: JSON.stringify(json_data)
+            }).then(function (res) {
+                return res.json();
+            }).then(function (data) {
+                var config = new RMBTControlServerRegistrationResponse(data);
+                onsuccess(config);
+            }).catch(function () {
+                _logger.error("error getting testID");
+                onerror();
             });
         },
 
@@ -1172,21 +1170,17 @@ var RMBTControlServerCommunication = exports.RMBTControlServerCommunication = fu
          *
          */
         getDataCollectorInfo: function getDataCollectorInfo() {
-            $.ajax({
-                headers: headers,
-                url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerDataCollectorResource,
-                type: "get",
-                dataType: "json",
-                contentType: "application/json",
-                success: function success(data) {
-                    _rmbtTestConfig.product = data.agent.substring(0, Math.min(150, data.agent.length));
-                    _rmbtTestConfig.model = data.product;
-                    //_rmbtTestConfig.platform = data.product;
-                    _rmbtTestConfig.os_version = data.version;
-                },
-                error: function error(data) {
-                    _logger.error("error getting data collection response");
-                }
+            fetch(_rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerDataCollectorResource, {
+                method: 'GET',
+                headers: headers
+            }).then(function (res) {
+                return res.json();
+            }).then(function (data) {
+                _rmbtTestConfig.product = data.agent.substring(0, Math.min(150, data.agent.length));
+                _rmbtTestConfig.model = data.product;
+                _rmbtTestConfig.os_version = data.version;
+            }).catch(function () {
+                _logger.error("error getting data collection response");
             });
         },
 
@@ -1202,21 +1196,18 @@ var RMBTControlServerCommunication = exports.RMBTControlServerCommunication = fu
 
             var json = JSON.stringify(json_data);
             _logger.debug("Submit size: " + json.length);
-            $.ajax({
+            fetch(_rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerResultResource, {
+                method: 'POST',
                 headers: headers,
-                url: _rmbtTestConfig.controlServerURL + _rmbtTestConfig.controlServerResultResource,
-                type: "post",
-                dataType: "json",
-                contentType: "application/json",
-                data: json,
-                success: function success(data) {
-                    _logger.debug(json_data.test_uuid);
-                    onsuccess(true);
-                },
-                error: function error(data) {
-                    _logger.error("error submitting results");
-                    onerror(false);
-                }
+                body: json
+            }).then(function (res) {
+                return res.json();
+            }).then(function () {
+                _logger.debug(json_data.test_uuid);
+                onsuccess(true);
+            }).catch(function () {
+                _logger.error("error submitting results");
+                onerror(false);
             });
         }
     };

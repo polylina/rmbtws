@@ -63,7 +63,7 @@ var MockLogger = function () {
 }();
 
 function RMBTTest(rmbtTestConfig, rmbtControlServer) {
-    var _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
+    var _logger = log && log.getLogger ? log.getLogger("rmbtws") : console;
 
     var _chunkSize = null;
     var MAX_CHUNK_SIZE = 4194304;
@@ -157,7 +157,9 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
      */
     var callErrorCallback = function callErrorCallback(error) {
         _logger.debug("error occurred during websocket test:", error);
-        if (error !== RMBTError.NOT_SUPPORTED) {
+        if (error === RMBTError.ABNORMALLY_CLOSED) {
+            setState(TestState.END);
+        } else if (error !== RMBTError.NOT_SUPPORTED) {
             setState(TestState.ERROR);
         }
         if (_errorCallback !== null) {
@@ -337,7 +339,11 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
                     if (e) {
                         _logger.error("connection closed", e);
                     }
-                    callErrorCallback(RMBTError.CONNECT_FAILED);
+                    if (e.code === 1006) {
+                        callErrorCallback(RMBTError.ABNORMALLY_CLOSED);
+                    } else {
+                        callErrorCallback(RMBTError.CONNECT_FAILED);
+                    }
                 },
                 TRYRECONNECT: function TRYRECONNECT() {
                     //@TODO: try to reconnect
@@ -1670,7 +1676,8 @@ var RMBTError = {
     SOCKET_INIT_FAILED: "WebSocket initialization failed",
     CONNECT_FAILED: "connection to test server failed",
     SUBMIT_FAILED: "Error during submission of test results",
-    REGISTRATION_FAILED: "Error during test registration"
+    REGISTRATION_FAILED: "Error during test registration",
+    ABNORMALLY_CLOSED: "Connection closed abnormally"
 };
 "use strict";
 

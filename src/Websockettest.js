@@ -36,7 +36,7 @@ class MockLogger {
 }
 
 export function RMBTTest(rmbtTestConfig, rmbtControlServer) {
-    let _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
+    let _logger = log && log.getLogger ? log.getLogger("rmbtws") : console;
 
     let _chunkSize=null;
     let MAX_CHUNK_SIZE=4194304;
@@ -130,7 +130,9 @@ export function RMBTTest(rmbtTestConfig, rmbtControlServer) {
      */
     const callErrorCallback = function(error) {
         _logger.debug("error occurred during websocket test:", error);
-        if (error !== RMBTError.NOT_SUPPORTED) {
+        if (error === RMBTError.ABNORMALLY_CLOSED) {
+            setState(TestState.END);
+        } else if (error !== RMBTError.NOT_SUPPORTED) {
             setState(TestState.ERROR);
         }
         if (_errorCallback !== null) {
@@ -320,7 +322,11 @@ export function RMBTTest(rmbtTestConfig, rmbtControlServer) {
                     if (e) {
                         _logger.error("connection closed", e);
                     }
-                    callErrorCallback(RMBTError.CONNECT_FAILED);
+                    if (e.code === 1006) {
+                        callErrorCallback(RMBTError.ABNORMALLY_CLOSED);
+                    } else {
+                        callErrorCallback(RMBTError.CONNECT_FAILED);
+                    }
                 },
                 TRYRECONNECT : function() {
                     //@TODO: try to reconnect

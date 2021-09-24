@@ -157,9 +157,8 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
      */
     var callErrorCallback = function callErrorCallback(error) {
         _logger.debug("error occurred during websocket test:", error);
-        if (error === RMBTError.ABNORMALLY_CLOSED) {
-            setState(TestState.END);
-        } else if (error !== RMBTError.NOT_SUPPORTED) {
+        _intermediateResult.error = error;
+        if (error !== RMBTError.NOT_SUPPORTED) {
             setState(TestState.ERROR);
         }
         if (_errorCallback !== null) {
@@ -1671,7 +1670,7 @@ RMBTPingResult.prototype.timeNs = -1;
  * @callback RMBTControlServerRegistrationResponseCallback
  * @param {RMBTControlServerRegistrationResponse} json
  */
-var RMBTError = {
+var RMBTError = exports.RMBTError = {
     NOT_SUPPORTED: "WebSockets are not supported",
     SOCKET_INIT_FAILED: "WebSocket initialization failed",
     CONNECT_FAILED: "connection to test server failed",

@@ -130,9 +130,8 @@ export function RMBTTest(rmbtTestConfig, rmbtControlServer) {
      */
     const callErrorCallback = function(error) {
         _logger.debug("error occurred during websocket test:", error);
-        if (error === RMBTError.ABNORMALLY_CLOSED) {
-            setState(TestState.END);
-        } else if (error !== RMBTError.NOT_SUPPORTED) {
+        _intermediateResult.error = error;
+        if (error !== RMBTError.NOT_SUPPORTED) {
             setState(TestState.ERROR);
         }
         if (_errorCallback !== null) {

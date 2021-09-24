@@ -311,7 +311,7 @@ RMBTPingResult.prototype.timeNs = -1;
  * @callback RMBTControlServerRegistrationResponseCallback
  * @param {RMBTControlServerRegistrationResponse} json
  */
-const RMBTError = {
+export const RMBTError = {
     NOT_SUPPORTED : "WebSockets are not supported",
     SOCKET_INIT_FAILED : "WebSocket initialization failed",
     CONNECT_FAILED : "connection to test server failed",

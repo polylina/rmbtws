@@ -111,7 +111,6 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
     //http://addyosmani.com/resources/essentialjsdesignpatterns/book/#observerpatternjavascript
     //RMBTTest.prototype = new Subject();
 
-
     function construct(rmbtTestConfig, rmbtControlServer) {
         //init socket
         _rmbtTestConfig = rmbtTestConfig; // = new RMBTTestConfig();
@@ -338,9 +337,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
                     if (e) {
                         _logger.error("connection closed", e);
                     }
-                    if (e.code === 1006) {
-                        callErrorCallback(RMBTError.ABNORMALLY_CLOSED);
-                    } else {
+                    if (e.code !== 1006) {
                         callErrorCallback(RMBTError.CONNECT_FAILED);
                     }
                 },
@@ -655,7 +652,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
         };
 
         var downloadChunkListener = function downloadChunkListener(event) {
-            if (typeof event.data === 'string') {
+            if (typeof event.data === "string") {
                 return;
             }
 
@@ -676,7 +673,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
             }
 
             //zero junks remain - get time
-            if (fullChunk && lastBuffer[lastBuffer.length - 1] === 0xFF) {
+            if (fullChunk && lastBuffer[lastBuffer.length - 1] === 0xff) {
                 //get info
                 socket.onmessage = function (line) {
                     var infomsg = line.data;
@@ -829,7 +826,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
             //let now = nowNs();
             lastRead = now;
 
-            if (lastByte[0] >= 0xFF) {
+            if (lastByte[0] >= 0xff) {
                 _logger.debug(thread.id + ": received end chunk");
                 window.clearInterval(interval);
 
@@ -858,11 +855,11 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
     }
 
     /**
-    * conduct the short pretest to recognize if the connection
-    * is too slow for multiple threads
-    * @param {RMBTTestThread} thread
-    * @param {Number} durationMs
-    */
+     * conduct the short pretest to recognize if the connection
+     * is too slow for multiple threads
+     * @param {RMBTTestThread} thread
+     * @param {Number} durationMs
+     */
     function shortUploadtest(thread, durationMs) {
         var prevListener = thread.socket.onmessage;
         var startTime = nowMs(); //ms since page load
@@ -1121,7 +1118,7 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
     };
 
     construct(rmbtTestConfig, rmbtControlServer);
-};
+}
 "use strict";
 
 /**

@@ -95,12 +95,10 @@ function RMBTTestThread(cyclicBarrier) {
          */
         setState: function (state) {
             this.state = state;
-            _logger.debug(this.id + ": reached state: " + state);
+            console.log(this.id + ": reached state: " + state);
             let that = this;
             _cyclicBarrier.await(function () {
-                _logger.debug(
-                    that.id + ": all threads reached state: " + state
-                );
+                console.log(that.id + ": all threads reached state: " + state);
                 if (
                     _callbacks[state] !== undefined &&
                     _callbacks[state] !== null
@@ -109,7 +107,7 @@ function RMBTTestThread(cyclicBarrier) {
                     //_callbacks[state] = null;
                     callback();
                 } else {
-                    _logger.info(
+                    console.log(
                         that.id + ": no callback registered for state: " + state
                     );
                 }
@@ -146,7 +144,7 @@ function RMBTTestThread(cyclicBarrier) {
             ];
             if (this.state !== TestState.END) {
                 let nextState = states[states.indexOf(this.state) + 1];
-                _logger.debug(this.id + ": triggered state " + nextState);
+                console.log(this.id + ": triggered state " + nextState);
                 this.setState(nextState);
             }
         },

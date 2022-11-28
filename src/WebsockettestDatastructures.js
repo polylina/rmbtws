@@ -1,6 +1,6 @@
 "use strict";
 
-export let RMBTTestConfig = function () {
+export let RMBTTestConfig = (function () {
     RMBTTestConfig.prototype.version = "0.3"; //minimal version compatible with the test
     RMBTTestConfig.prototype.language;
     RMBTTestConfig.prototype.uuid = "";
@@ -15,9 +15,11 @@ export let RMBTTestConfig = function () {
     RMBTTestConfig.prototype.client = "RMBTws";
     RMBTTestConfig.prototype.timezone = "Europe/Vienna";
     RMBTTestConfig.prototype.controlServerURL;
-    RMBTTestConfig.prototype.controlServerRegistrationResource = "adminTestRequest";
+    RMBTTestConfig.prototype.controlServerRegistrationResource =
+        "adminTestRequest";
     RMBTTestConfig.prototype.controlServerResultResource = "measurementResult";
-    RMBTTestConfig.prototype.controlServerDataCollectorResource = "requestDataCollector";
+    RMBTTestConfig.prototype.controlServerDataCollectorResource =
+        "requestDataCollector";
     //?!? - from RMBTTestParameter.java
     RMBTTestConfig.prototype.pretestDurationMs = 2000;
     RMBTTestConfig.prototype.savedChunks = 4; //4*4 + 4*8 + 4*16 + ... + 4*MAX_CHUNK_SIZE -> O(8*MAX_CHUNK_SIZE)
@@ -27,15 +29,18 @@ export let RMBTTestConfig = function () {
     RMBTTestConfig.prototype.downloadThreadsLimitsMbit = {
         0: 1,
         1: 3,
-        100: 10
+        100: 10,
     };
     RMBTTestConfig.prototype.uploadThreadsLimitsMbit = {
         0: 1,
         30: 2,
         80: 3,
-        150: 10
+        150: 10,
     };
-    RMBTTestConfig.prototype.userServerSelection = typeof window.userServerSelection !== 'undefined' ? userServerSelection : 0; //for QoSTest
+    RMBTTestConfig.prototype.userServerSelection =
+        typeof window.userServerSelection !== "undefined"
+            ? userServerSelection
+            : 0; //for QoSTest
     RMBTTestConfig.prototype.additionalRegistrationParameters = {}; //will be transmitted in ControlServer registration, if any
     RMBTTestConfig.prototype.additionalSubmissionParameters = {}; //will be transmitted in ControlServer result submission, if any
 
@@ -45,9 +50,9 @@ export let RMBTTestConfig = function () {
     }
 
     return RMBTTestConfig;
-}();
+})();
 
-let RMBTControlServerRegistrationResponse = function () {
+let RMBTControlServerRegistrationResponse = (function () {
     RMBTControlServerRegistrationResponse.prototype.client_remote_ip;
     RMBTControlServerRegistrationResponse.prototype.provider;
     RMBTControlServerRegistrationResponse.prototype.test_server_encryption = "";
@@ -68,7 +73,7 @@ let RMBTControlServerRegistrationResponse = function () {
     }
 
     return RMBTControlServerRegistrationResponse;
-}();
+})();
 
 /**
  * Control structure for a single websocket-test thread
@@ -76,8 +81,8 @@ let RMBTControlServerRegistrationResponse = function () {
  * @returns {RMBTTestThread}
  */
 function RMBTTestThread(cyclicBarrier) {
-
-    let _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
+    let _logger =
+        log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
     let _callbacks = {};
     let _cyclicBarrier = cyclicBarrier;
 
@@ -88,21 +93,27 @@ function RMBTTestThread(cyclicBarrier) {
          * the state
          * @param {TestState} state
          */
-        setState: function(state) {
+        setState: function (state) {
             this.state = state;
             _logger.debug(this.id + ": reached state: " + state);
             let that = this;
-            _cyclicBarrier.await(function() {
-                _logger.debug(that.id + ": all threads reached state: " + state);
-                if (_callbacks[state] !== undefined && _callbacks[state] !== null) {
+            _cyclicBarrier.await(function () {
+                _logger.debug(
+                    that.id + ": all threads reached state: " + state
+                );
+                if (
+                    _callbacks[state] !== undefined &&
+                    _callbacks[state] !== null
+                ) {
                     let callback = _callbacks[state];
                     //_callbacks[state] = null;
                     callback();
                 } else {
-                    _logger.info(that.id + ": no callback registered for state: " + state);
+                    _logger.info(
+                        that.id + ": no callback registered for state: " + state
+                    );
                 }
             });
-
         },
 
         /**
@@ -110,11 +121,11 @@ function RMBTTestThread(cyclicBarrier) {
          * @param {TestState} state
          * @param {Function} callback the function that is called on state enter
          */
-        onStateEnter: function(state, callback) {
+        onStateEnter: function (state, callback) {
             _callbacks[state] = callback;
         },
 
-        retriggerState : function() {
+        retriggerState: function () {
             //trigger state again since we received an 'ERROR'-Message
             setState(this.state);
         },
@@ -122,9 +133,17 @@ function RMBTTestThread(cyclicBarrier) {
         /**
          * Triggers the next state in the thread
          */
-        triggerNextState: function() {
-            let states = [TestState.INIT, TestState.INIT_DOWN, TestState.PING,
-                TestState.DOWN, TestState.CONNECT_UPLOAD, TestState.INIT_UP, TestState.UP, TestState.END];
+        triggerNextState: function () {
+            let states = [
+                TestState.INIT,
+                TestState.INIT_DOWN,
+                TestState.PING,
+                TestState.DOWN,
+                TestState.CONNECT_UPLOAD,
+                TestState.INIT_UP,
+                TestState.UP,
+                TestState.END,
+            ];
             if (this.state !== TestState.END) {
                 let nextState = states[states.indexOf(this.state) + 1];
                 _logger.debug(this.id + ": triggered state " + nextState);
@@ -133,8 +152,7 @@ function RMBTTestThread(cyclicBarrier) {
         },
         id: -1,
         socket: null,
-        result: new RMBTThreadTestResult()
-
+        result: new RMBTThreadTestResult(),
     };
 }
 
@@ -143,7 +161,7 @@ export function RMBTTestResult() {
     this.speedItems = [];
     this.threads = [];
 }
-RMBTTestResult.prototype.addThread = function(rmbtThreadTestResult) {
+RMBTTestResult.prototype.addThread = function (rmbtThreadTestResult) {
     this.threads.push(rmbtThreadTestResult);
 };
 RMBTTestResult.prototype.ip_local = null;
@@ -166,7 +184,10 @@ RMBTTestResult.prototype.totalDownBytes = -1;
 RMBTTestResult.prototype.totalUpBytes = -1;
 RMBTTestResult.prototype.beginTime = -1;
 RMBTTestResult.prototype.geoLocations = [];
-RMBTTestResult.calculateOverallSpeedFromMultipleThreads = (threads, phaseResults) => {
+RMBTTestResult.calculateOverallSpeedFromMultipleThreads = (
+    threads,
+    phaseResults
+) => {
     //TotalTestResult.java:118 (Commit 7d5519ce6ad9121896866d4d8f30299c7c19910d)
     let numThreads = threads.length;
     let targetTime = Infinity;
@@ -200,10 +221,12 @@ RMBTTestResult.calculateOverallSpeedFromMultipleThreads = (threads, phaseResults
                 // nsec[max] == targetTime
                 calcBytes = phasedThread[phasedLength - 1].bytes;
             } else {
-                const bytes1 = targetIdx === 0 ? 0 : phasedThread[targetIdx - 1].bytes;
+                const bytes1 =
+                    targetIdx === 0 ? 0 : phasedThread[targetIdx - 1].bytes;
                 const bytes2 = phasedThread[targetIdx].bytes;
                 const bytesDiff = bytes2 - bytes1;
-                const nsec1 = targetIdx === 0 ? 0 : phasedThread[targetIdx - 1].duration;
+                const nsec1 =
+                    targetIdx === 0 ? 0 : phasedThread[targetIdx - 1].duration;
                 const nsec2 = phasedThread[targetIdx].duration;
                 const nsecDiff = nsec2 - nsec1;
                 const nsecCompensation = targetTime - nsec1;
@@ -222,11 +245,11 @@ RMBTTestResult.calculateOverallSpeedFromMultipleThreads = (threads, phaseResults
     return {
         bytes: totalBytes,
         nsec: targetTime,
-        speed: totalBytes * 8 / (targetTime / 1e9)
+        speed: (totalBytes * 8) / (targetTime / 1e9),
     };
 };
 
-RMBTTestResult.prototype.calculateAll = function() {
+RMBTTestResult.prototype.calculateAll = function () {
     //speed items down
     for (let i = 0; i < this.threads.length; i++) {
         let down = this.threads[i].down;
@@ -236,7 +259,7 @@ RMBTTestResult.prototype.calculateAll = function() {
                     direction: "download",
                     thread: i,
                     time: down[j].duration,
-                    bytes: down[j].bytes
+                    bytes: down[j].bytes,
                 });
             }
         }
@@ -246,9 +269,12 @@ RMBTTestResult.prototype.calculateAll = function() {
     let targetTime = Infinity;
 
     //down
-    let results = RMBTTestResult.calculateOverallSpeedFromMultipleThreads(this.threads, function (thread) {
-        return thread.down;
-    });
+    let results = RMBTTestResult.calculateOverallSpeedFromMultipleThreads(
+        this.threads,
+        function (thread) {
+            return thread.down;
+        }
+    );
     this.speed_download = results.speed / 1e3; //bps -> kbps
     this.bytes_download = results.bytes;
     this.nsec_download = results.nsec;
@@ -262,16 +288,19 @@ RMBTTestResult.prototype.calculateAll = function() {
                     direction: "upload",
                     thread: i,
                     time: up[j].duration,
-                    bytes: up[j].bytes
+                    bytes: up[j].bytes,
                 });
             }
         }
     }
 
     //up
-    results = RMBTTestResult.calculateOverallSpeedFromMultipleThreads(this.threads, function (thread) {
-        return thread.up;
-    });
+    results = RMBTTestResult.calculateOverallSpeedFromMultipleThreads(
+        this.threads,
+        function (thread) {
+            return thread.up;
+        }
+    );
     this.speed_upload = results.speed / 1e3; //bps -> kbps
     this.bytes_upload = results.bytes;
     this.nsec_upload = results.nsec;
@@ -282,12 +311,10 @@ RMBTTestResult.prototype.calculateAll = function() {
         this.pings.push({
             value: pings[i].client,
             value_server: pings[i].server,
-            time_ns: pings[i].timeNs
+            time_ns: pings[i].timeNs,
         });
     }
 };
-
-
 
 function RMBTThreadTestResult() {
     this.down = []; //map of bytes/nsec
@@ -311,11 +338,11 @@ RMBTPingResult.prototype.timeNs = -1;
  * @callback RMBTControlServerRegistrationResponseCallback
  * @param {RMBTControlServerRegistrationResponse} json
  */
-export const RMBTError = {
-    NOT_SUPPORTED : "WebSockets are not supported",
-    SOCKET_INIT_FAILED : "WebSocket initialization failed",
-    CONNECT_FAILED : "connection to test server failed",
-    SUBMIT_FAILED : "Error during submission of test results",
-    REGISTRATION_FAILED : "Error during test registration",
-    ABNORMALLY_CLOSED: "Connection closed abnormally"
+export var RMBTError = {
+    NOT_SUPPORTED: "WebSockets are not supported",
+    SOCKET_INIT_FAILED: "WebSocket initialization failed",
+    CONNECT_FAILED: "connection to test server failed",
+    SUBMIT_FAILED: "Error during submission of test results",
+    REGISTRATION_FAILED: "Error during test registration",
+    ABNORMALLY_CLOSED: "Connection closed abnormally",
 };

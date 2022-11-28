@@ -1398,7 +1398,7 @@ var RMBTTestConfig = exports.RMBTTestConfig = function () {
         80: 3,
         150: 10
     };
-    RMBTTestConfig.prototype.userServerSelection = typeof window.userServerSelection !== 'undefined' ? userServerSelection : 0; //for QoSTest
+    RMBTTestConfig.prototype.userServerSelection = typeof window.userServerSelection !== "undefined" ? userServerSelection : 0; //for QoSTest
     RMBTTestConfig.prototype.additionalRegistrationParameters = {}; //will be transmitted in ControlServer registration, if any
     RMBTTestConfig.prototype.additionalSubmissionParameters = {}; //will be transmitted in ControlServer result submission, if any
 
@@ -1439,7 +1439,6 @@ var RMBTControlServerRegistrationResponse = function () {
  * @returns {RMBTTestThread}
  */
 function RMBTTestThread(cyclicBarrier) {
-
     var _logger = log && log.getLogger ? log.getLogger("rmbtws") : new MockLogger();
     var _callbacks = {};
     var _cyclicBarrier = cyclicBarrier;
@@ -1495,7 +1494,6 @@ function RMBTTestThread(cyclicBarrier) {
         id: -1,
         socket: null,
         result: new RMBTThreadTestResult()
-
     };
 }
 

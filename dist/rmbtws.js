@@ -474,7 +474,9 @@ function RMBTTest(rmbtTestConfig, rmbtControlServer) {
 
         thread.socket.binaryType = "arraybuffer";
         thread.socket.onerror = errorHandler;
-        thread.socket.onclose = errorHandler;
+        thread.socket.onclose = function () {
+            thread.triggerNextState();
+        };
 
         thread.socket.onmessage = function (event) {
             //logger.debug("thread " + thread.id + " triggered, state " + thread.state + " event: " + event);
